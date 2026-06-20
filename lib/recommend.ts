@@ -5,7 +5,7 @@
  * surfaces first, not a generic "switch off lights" list.
  */
 import { Breakdown, Profile } from "./store";
-import { DIET, dietDailyKg } from "./factors";
+import { dietDailyKg } from "./factors";
 
 export type Reco = {
   title: string;

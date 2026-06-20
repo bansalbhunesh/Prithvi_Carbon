@@ -45,17 +45,20 @@ swappable, mockable interface; all emission math is pure and unit-tested.
 ## Security
 
 - **API key is server-only.** Gemini is called exclusively from `app/api/scan`
-  (Node runtime) with the key in an environment variable — it never reaches the
-  browser bundle.
+  (Node runtime) with the key passed via `x-goog-api-key` header — it never
+  reaches the browser bundle or appears in server logs.
 - **Input validation.** Every request is Zod-validated: base64 charset, a ~4.5 MB
-  size cap, and a mime allowlist (jpeg/png/webp).
-- **Rate limiting.** A fixed-window limiter (12 scans/min/IP) protects the paid
-  endpoint from abuse; swap in Upstash Redis for multi-instance prod.
+  size cap, a mime allowlist (jpeg/png/webp), and content-type enforcement.
+- **Rate limiting.** A fixed-window limiter (12 scans/min/IP) with automatic
+  stale-entry purging protects the paid endpoint; swap in Upstash Redis for
+  multi-instance prod.
 - **Untrusted model output.** Gemini's JSON is re-validated against a strict Zod
   schema before use; out-of-range or malformed values are rejected.
 - **Prompt-injection aware.** The prompt instructs the model to treat any text in
   the image as data, not instructions, and to return a constrained JSON shape.
 - **No secrets in source.** `.env.local` is gitignored; `.env.example` documents setup.
+- **Security headers.** `X-Content-Type-Options`, `X-Frame-Options`, and
+  `Referrer-Policy` are set on all responses. `X-Powered-By` is disabled.
 
 ## Tests
 
@@ -66,30 +69,50 @@ npm test          # 40 unit tests, ~1s
 Coverage spans the deterministic engine (grid/transport/diet/fuel math and
 invariants), store aggregation (household splitting, fuel handling, demo seed),
 input validation and Gemini output parsing (security boundaries), the rate
-limiter, and the recommendation ranking. A diet-recommendation direction bug was
-caught by these tests during development.
+limiter, and the recommendation ranking.
 
 ## Run locally
 
-Requirements: **Node 18.18+ or 20+** and npm.
+**Requirements:** Node 18.18+ or 20+ and npm.
 
 ```bash
+git clone <repo-url>
+cd prithvi-carbon
 npm install
 cp .env.example .env.local   # add your free AI Studio key (optional)
 npm run dev                  # http://localhost:3000
 ```
 
-The app works without a key — scanning falls back to manual entry, everything
-else runs fully. Run the tests with `npm test` (40 unit tests).
+The app works without an API key — scanning falls back to manual entry, everything
+else runs fully. Run the tests with `npm test`.
+
+### Environment variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `GEMINI_API_KEY` | No | — | Google AI Studio API key for bill/receipt scanning |
+| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model to use for document extraction |
+
+Get a free API key at https://aistudio.google.com/apikey
 
 ## Deploy (Vercel, zero config)
 
 ```bash
-git init && git add -A && git commit -m "Prithvi"
-gh repo create prithvi-carbon --public --source=. --push
 npx vercel --prod
-# In the Vercel dashboard, add env var GEMINI_API_KEY (and optionally GEMINI_MODEL).
 ```
+
+In the Vercel dashboard, add environment variable `GEMINI_API_KEY` (and
+optionally `GEMINI_MODEL`). No other configuration is needed — the project
+deploys as a standard Next.js app with one serverless API route.
+
+**Alternative — manual deploy:**
+1. Push the repo to GitHub.
+2. Import it in the [Vercel dashboard](https://vercel.com/new).
+3. Set `GEMINI_API_KEY` in the Environment Variables section.
+4. Deploy.
+
+The app runs on port 3000 locally (`npm run dev` / `npm start`). In production
+on Vercel, port assignment is handled automatically.
 
 ## Built with Google Antigravity
 

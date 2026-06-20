@@ -6,6 +6,7 @@
  */
 type Bucket = { count: number; resetAt: number };
 const store = new Map<string, Bucket>();
+let lastPurge = Date.now();
 
 export type RateLimitResult = { ok: boolean; remaining: number; resetAt: number };
 
@@ -15,6 +16,14 @@ export function rateLimit(
   windowMs = 60_000,
 ): RateLimitResult {
   const now = Date.now();
+
+  if (now - lastPurge > windowMs * 2) {
+    for (const [k, v] of store) {
+      if (now > v.resetAt) store.delete(k);
+    }
+    lastPurge = now;
+  }
+
   const b = store.get(key);
   if (!b || now > b.resetAt) {
     const resetAt = now + windowMs;
@@ -34,4 +43,4 @@ export function clientKey(headers: Headers): string {
 }
 
 /** Test seam. */
-export function __resetRateLimit() { store.clear(); }
+export function __resetRateLimit() { store.clear(); lastPurge = Date.now(); }

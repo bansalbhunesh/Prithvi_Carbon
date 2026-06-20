@@ -52,7 +52,8 @@ export function loadProfile(): Profile {
 }
 
 export function saveProfile(p: Profile) {
-  if (typeof window !== "undefined") localStorage.setItem(PKEY, JSON.stringify(p));
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(PKEY, JSON.stringify(p)); } catch { /* quota exceeded */ }
 }
 
 export function loadActivities(): Activity[] {
@@ -64,7 +65,8 @@ export function loadActivities(): Activity[] {
 }
 
 export function saveActivities(a: Activity[]) {
-  if (typeof window !== "undefined") localStorage.setItem(AKEY, JSON.stringify(a));
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(AKEY, JSON.stringify(a)); } catch { /* quota exceeded */ }
 }
 
 export function computeActivityKg(a: Omit<Activity, "kg" | "id">, state: string): number {

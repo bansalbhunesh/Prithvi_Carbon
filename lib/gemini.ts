@@ -34,7 +34,7 @@ export async function extractFromDocument(
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new GeminiError("GEMINI_API_KEY not configured", 503);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
   const payload = {
     contents: [{
       parts: [
@@ -47,7 +47,10 @@ export async function extractFromDocument(
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": key,
+    },
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(25_000),
   });

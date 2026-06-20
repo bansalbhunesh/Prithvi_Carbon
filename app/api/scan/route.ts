@@ -15,6 +15,10 @@ import { extractFromDocument, GeminiError } from "@/lib/gemini";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
+export function GET() {
+  return NextResponse.json({ error: "Use POST" }, { status: 405 });
+}
+
 export async function POST(req: NextRequest) {
   // 1) rate limit (protect the paid AI endpoint)
   const rl = rateLimit(clientKey(req.headers));
@@ -25,7 +29,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 2) parse + validate input
+  // 2) reject wrong content-type early
+  const ct = req.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    return NextResponse.json({ ok: false, error: "Content-Type must be application/json" }, { status: 415 });
+  }
+
+  // 3) parse + validate input
   let json: unknown;
   try { json = await req.json(); }
   catch { return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 }); }
@@ -42,13 +52,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 3) call the isolated Gemini service
+  // 4) call the isolated Gemini service
   try {
     const result = await extractFromDocument(parsed.data.image, parsed.data.mime);
     return NextResponse.json({ ok: true, result });
   } catch (e) {
     if (e instanceof GeminiError) {
-      // soft-fail (200) for "no key" so the UI can fall back to manual entry
       const status = e.status === 503 ? 200 : e.status;
       return NextResponse.json({ ok: false, error: e.message }, { status });
     }
