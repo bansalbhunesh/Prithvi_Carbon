@@ -1,19 +1,13 @@
-/**
- * recommend.ts — personalized reduction actions.
- * Ranks by (estimated daily kg saved) x (feasibility weight), computed
- * from the user's ACTUAL breakdown — so the biggest lever for THIS person
- * surfaces first, not a generic "switch off lights" list.
- */
 import { Breakdown, Profile } from "./store";
-import { DIET, dietDailyKg } from "./factors";
+import { dietDailyKg } from "./factors";
 
 export type Reco = {
   title: string;
   detail: string;
-  saveKgDay: number;   // estimated daily CO2 saved
-  feasibility: number; // 0..1 (1 = easy)
+  saveKgDay: number;
+  feasibility: number;
   category: "electricity" | "transport" | "cooking" | "diet";
-  score: number;       // saveKgDay * feasibility (ranking key)
+  score: number;
 };
 
 export function recommend(profile: Profile, b: Breakdown): Reco[] {
@@ -21,7 +15,6 @@ export function recommend(profile: Profile, b: Breakdown): Reco[] {
   const push = (r: Omit<Reco, "score">) =>
     out.push({ ...r, score: r.saveKgDay * r.feasibility });
 
-  // --- Electricity ---
   if (b.electricity > 1.5) {
     push({
       category: "electricity",
@@ -48,7 +41,6 @@ export function recommend(profile: Profile, b: Breakdown): Reco[] {
     });
   }
 
-  // --- Transport ---
   if (b.transport > 2.0) {
     push({
       category: "transport",
@@ -75,7 +67,6 @@ export function recommend(profile: Profile, b: Breakdown): Reco[] {
     });
   }
 
-  // --- Cooking ---
   if (b.cooking > 0.8) {
     push({
       category: "cooking",
@@ -86,13 +77,11 @@ export function recommend(profile: Profile, b: Breakdown): Reco[] {
     });
   }
 
-  // --- Diet (only suggest a realistic one-step GREENER shift, never preachy) ---
-  // Order runs heaviest -> greenest; the next greener option is idx + 1.
   const dietOrder = ["nonveg_heavy", "nonveg_light", "eggetarian", "vegetarian", "vegan"];
   const idx = dietOrder.indexOf(profile.diet);
   if (idx >= 0 && idx < dietOrder.length - 1) {
     const next = dietOrder[idx + 1];
-    const save = dietDailyKg(profile.diet) - dietDailyKg(next); // positive: next is greener
+    const save = dietDailyKg(profile.diet) - dietDailyKg(next);
     if (save > 0.3) {
       push({
         category: "diet",
