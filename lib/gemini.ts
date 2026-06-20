@@ -1,11 +1,3 @@
-/**
- * gemini.ts — the ONLY place that talks to the Gemini API.
- * Isolating the external dependency keeps the route thin, the call swappable,
- * and the logic mockable in tests (Architecture + Test Coverage).
- *
- * Principle: Gemini READS the document. It never returns an emission number —
- * the deterministic engine in factors.ts does all CO2 math.
- */
 import { ScanResult, ScanResultSchema } from "./scan-schema";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -34,7 +26,7 @@ export async function extractFromDocument(
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new GeminiError("GEMINI_API_KEY not configured", 503);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
   const payload = {
     contents: [{
       parts: [
@@ -47,7 +39,10 @@ export async function extractFromDocument(
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": key,
+    },
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(25_000),
   });
@@ -61,7 +56,6 @@ export async function extractFromDocument(
   return parseGeminiJson(text);
 }
 
-/** Exported for tests: safely parse + re-validate raw model output. */
 export function parseGeminiJson(text: string): ScanResult {
   const cleaned = text.replace(/```json|```/g, "").trim();
   let raw: unknown;

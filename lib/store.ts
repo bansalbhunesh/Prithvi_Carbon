@@ -1,7 +1,3 @@
-/**
- * store.ts — local-first state (no backend, no env vars).
- * Profile + activity log persist in the browser via localStorage.
- */
 import {
   electricityKg, transportKg, lpgKg, dietDailyKg, round1, FUEL_PER_LITRE,
 } from "./factors";
@@ -16,20 +12,16 @@ export type Profile = {
 
 export type Activity = {
   id: string;
-  date: string;        // ISO date
+  date: string;
   type: "electricity" | "commute" | "lpg" | "flight" | "fuel";
-  // electricity
   kwh?: number;
-  // commute / flight
   mode?: string;
   km?: number;
-  // lpg
   cylinders?: number;
-  // fuel (scanned receipt)
   litres?: number;
   fuel?: string;
-  kg: number;          // computed CO2
-  scanned?: boolean;   // came from a Gemini scan
+  kg: number;
+  scanned?: boolean;
 };
 
 const PKEY = "prithvi.profile.v1";
@@ -52,7 +44,8 @@ export function loadProfile(): Profile {
 }
 
 export function saveProfile(p: Profile) {
-  if (typeof window !== "undefined") localStorage.setItem(PKEY, JSON.stringify(p));
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(PKEY, JSON.stringify(p)); } catch { /* quota exceeded */ }
 }
 
 export function loadActivities(): Activity[] {
@@ -64,7 +57,8 @@ export function loadActivities(): Activity[] {
 }
 
 export function saveActivities(a: Activity[]) {
-  if (typeof window !== "undefined") localStorage.setItem(AKEY, JSON.stringify(a));
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(AKEY, JSON.stringify(a)); } catch { /* quota exceeded */ }
 }
 
 export function computeActivityKg(a: Omit<Activity, "kg" | "id">, state: string): number {
@@ -79,20 +73,15 @@ export function computeActivityKg(a: Omit<Activity, "kg" | "id">, state: string)
   return 0;
 }
 
-/* ---- Aggregation -------------------------------------------------
- * Returns daily-average kg CO2 split by category, over the period that
- * has logged activity. Diet is a per-day baseline from the profile.
- */
 export type Breakdown = {
   electricity: number;
   transport: number;
   cooking: number;
   diet: number;
-  total: number; // kg/day
+  total: number;
 };
 
 export function dailyBreakdown(profile: Profile, acts: Activity[]): Breakdown {
-  // window = distinct days that have any log, min 1, so averages are fair
   const days = new Set(acts.map((a) => a.date));
   const span = Math.max(days.size, 1);
 
@@ -102,11 +91,10 @@ export function dailyBreakdown(profile: Profile, acts: Activity[]): Breakdown {
     else if (a.type === "commute" || a.type === "flight" || a.type === "fuel") transport += a.kg;
     else if (a.type === "lpg") cooking += a.kg;
   }
-  // per-person share of household electricity + cooking
   const hh = Math.max(profile.household, 1);
   const elecPP = electricity / hh / span;
   const cookPP = cooking / hh / span;
-  const transPP = transport / span; // transport logged is personal
+  const transPP = transport / span;
   const diet = dietDailyKg(profile.diet);
 
   const total = elecPP + transPP + cookPP + diet;
@@ -123,10 +111,6 @@ export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-/* ---- Trend series: total kg/day for the last N days ---------------
- * Diet baseline applies every day; logged activity adds on top,
- * household-split for shared categories. Returns oldest→newest.
- */
 export function dailySeries(profile: Profile, acts: Activity[], n = 7) {
   const hh = Math.max(profile.household, 1);
   const diet = dietDailyKg(profile.diet);
@@ -148,7 +132,6 @@ export function dailySeries(profile: Profile, acts: Activity[], n = 7) {
   return out;
 }
 
-/* ---- Demo seed: a realistic week so judges see a full dashboard --- */
 export function seedDemo(): { profile: Profile; acts: Activity[] } {
   const profile: Profile = {
     name: "Bhunesh", state: "Maharashtra", diet: "nonveg_light",
@@ -159,7 +142,6 @@ export function seedDemo(): { profile: Profile; acts: Activity[] } {
     const d = new Date(today); d.setDate(d.getDate() - back);
     return d.toISOString().slice(0, 10);
   };
-  // a week of commuting + power, with one metro day and one flight
   const raw: Omit<Activity, "id" | "kg">[] = [
     { type: "commute", date: iso(0), mode: "petrol_car", km: 14 },
     { type: "electricity", date: iso(0), kwh: 9 },

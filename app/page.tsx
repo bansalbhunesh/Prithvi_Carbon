@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Profile, Activity, loadProfile, saveProfile, loadActivities, saveActivities,
   computeActivityKg, dailyBreakdown, dailySeries, seedDemo, uid,
@@ -27,14 +27,21 @@ export default function Page() {
     setReady(true);
   }, []);
 
-  function updateProfile(p: Profile) { setProfile(p); saveProfile(p); }
-  function updateActs(a: Activity[]) { setActs(a); saveActivities(a); }
-  function loadDemo() {
+  const updateProfile = useCallback((p: Profile) => { setProfile(p); saveProfile(p); }, []);
+  const updateActs = useCallback((a: Activity[]) => { setActs(a); saveActivities(a); }, []);
+  const loadDemo = useCallback(() => {
     const { profile: p, acts: a } = seedDemo();
     updateProfile(p); updateActs(a);
-  }
+  }, [updateProfile, updateActs]);
 
-  if (!ready) return <main className="wrap" style={{ padding: 40 }} />;
+  if (!ready) {
+    return (
+      <main className="wrap" style={{ padding: 40, textAlign: "center" }}>
+        <div className="loading-spinner" />
+        <p className="tinylabel" style={{ marginTop: 16 }}>Loading your data...</p>
+      </main>
+    );
+  }
 
   if (!profile.onboarded)
     return <Onboarding onDone={(p) => updateProfile({ ...p, onboarded: true })} onDemo={loadDemo} />;
@@ -45,6 +52,8 @@ export default function Page() {
 /* ----------------------------- Onboarding ----------------------------- */
 function Onboarding({ onDone, onDemo }: { onDone: (p: Profile) => void; onDemo: () => void }) {
   const [p, setP] = useState<Profile>(DEFAULT_PROFILE);
+  const canSubmit = p.name.trim().length > 0;
+
   return (
     <main className="wrap" style={{ paddingTop: 48, paddingBottom: 60 }}>
       <span className="eyebrow reveal reveal-1">Set up · 30 seconds</span>
@@ -58,37 +67,40 @@ function Onboarding({ onDone, onDemo }: { onDone: (p: Profile) => void; onDemo: 
       <div className="card pad reveal reveal-4" style={{ marginTop: 28, maxWidth: 560 }}>
         <div className="row r2">
           <div>
-            <label className="fld">Your name</label>
-            <input value={p.name} placeholder="Bhunesh"
+            <label className="fld" htmlFor="ob-name">Your name</label>
+            <input id="ob-name" value={p.name} placeholder="e.g. Bhunesh"
+              autoComplete="given-name"
               onChange={(e) => setP({ ...p, name: e.target.value })} />
           </div>
           <div>
-            <label className="fld">State (sets your grid factor)</label>
-            <select value={p.state} onChange={(e) => setP({ ...p, state: e.target.value })}>
+            <label className="fld" htmlFor="ob-state">State (sets your grid factor)</label>
+            <select id="ob-state" value={p.state} onChange={(e) => setP({ ...p, state: e.target.value })}>
               {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
         </div>
         <div className="row r2" style={{ marginTop: 14 }}>
           <div>
-            <label className="fld">Diet</label>
-            <select value={p.diet} onChange={(e) => setP({ ...p, diet: e.target.value })}>
+            <label className="fld" htmlFor="ob-diet">Diet</label>
+            <select id="ob-diet" value={p.diet} onChange={(e) => setP({ ...p, diet: e.target.value })}>
               {Object.entries(DIET_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label className="fld">People in household</label>
-            <input type="number" min={1} value={p.household}
-              onChange={(e) => setP({ ...p, household: Math.max(1, +e.target.value || 1) })} />
+            <label className="fld" htmlFor="ob-hh">People in household</label>
+            <input id="ob-hh" type="number" min={1} max={20} value={p.household}
+              onChange={(e) => setP({ ...p, household: Math.max(1, Math.min(20, +e.target.value || 1)) })} />
           </div>
         </div>
         <div style={{ marginTop: 12 }} className="tinylabel">
-          Your grid: {round1(gridFactor(p.state) * 1000) / 1000} kg CO₂/kWh
+          Your grid: {round1(gridFactor(p.state) * 1000) / 1000} kg CO2/kWh
           {p.state !== "All India" && gridFactor(p.state) < 0.71 && " · cleaner than the national average"}
           {gridFactor(p.state) > 0.71 && " · dirtier than the national average"}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 18, flexWrap: "wrap" }}>
-          <button className="btn" onClick={() => onDone(p)}>Start tracking →</button>
+          <button className="btn" disabled={!canSubmit} onClick={() => canSubmit && onDone(p)}>
+            Start tracking
+          </button>
           <button className="linkbtn" onClick={onDemo}>or explore a sample week first</button>
         </div>
       </div>
@@ -107,7 +119,6 @@ function Dashboard({
   const recos = useMemo(() => recommend(profile, b), [profile, b]);
   const series = useMemo(() => dailySeries(profile, acts, 7), [profile, acts]);
 
-  // stats: today vs yesterday, days under the India benchmark, 7-day avg
   const todayVal = series[series.length - 1]?.total ?? 0;
   const yestVal = series[series.length - 2]?.total ?? 0;
   const dayDelta = round1(todayVal - yestVal);
@@ -115,7 +126,6 @@ function Dashboard({
   const avg7 = round1(series.reduce((s, d) => s + d.total, 0) / Math.max(series.length, 1));
   const seriesMax = Math.max(...series.map((d) => d.total), BENCHMARKS.india_avg, 0.1);
 
-  // gauge position: clamp total between 0 and world avg, map to 0..100%
   const pinPct = Math.max(2, Math.min(98, (b.total / BENCHMARKS.world_avg) * 100));
   const vsIndia = round1(b.total - BENCHMARKS.india_avg);
 
@@ -134,7 +144,7 @@ function Dashboard({
           <span className="eyebrow">Daily footprint{profile.name ? ` · ${profile.name}` : ""}</span>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginTop: 6 }}>
             <span className="metric xl">{b.total}</span>
-            <span className="unit" style={{ paddingBottom: 8 }}>kg CO₂e / day</span>
+            <span className="unit" style={{ paddingBottom: 8 }}>kg CO2e / day</span>
           </div>
           <p className="lead" style={{ marginTop: 6 }}>
             {vsIndia <= 0
@@ -144,7 +154,11 @@ function Dashboard({
         </div>
         <button
           className="linkbtn"
-          onClick={() => { setActs([]); setProfile({ ...profile, onboarded: false }); }}
+          onClick={() => {
+            if (window.confirm("Reset all data and start over?")) {
+              setActs([]); setProfile({ ...profile, onboarded: false });
+            }
+          }}
         >
           Reset
         </button>
@@ -215,7 +229,7 @@ function Dashboard({
         <div className="grid grid-2">
           <div className="card pad">
             <h2 className="sec">What it&apos;s made of</h2>
-            <span className="tinylabel">kg CO₂e / day, per person</span>
+            <span className="tinylabel">kg CO2e / day, per person</span>
             <div style={{ marginTop: 14 }}>
               {cats.map((c) => (
                 <div className="bar-row" key={c.key}>
@@ -236,7 +250,7 @@ function Dashboard({
             </p>
           </div>
 
-          <Logger profile={profile} acts={acts} setActs={setActs} setProfile={setProfile} />
+          <Logger profile={profile} acts={acts} setActs={setActs} />
         </div>
 
         {/* Recommendations */}
@@ -244,7 +258,7 @@ function Dashboard({
           <div className="spread">
             <div>
               <h2 className="sec">Your biggest levers</h2>
-              <span className="tinylabel">ranked by impact × how doable it is — for your footprint</span>
+              <span className="tinylabel">ranked by impact x how doable it is — for your footprint</span>
             </div>
           </div>
           <div style={{ marginTop: 16 }}>
@@ -262,7 +276,7 @@ function Dashboard({
                   </span>
                 </div>
                 <div className="reco-save">
-                  <div className="n">−{round1(r.saveKgDay)}</div>
+                  <div className="n">-{round1(r.saveKgDay)}</div>
                   <div className="l">kg/day</div>
                 </div>
               </div>
@@ -276,10 +290,10 @@ function Dashboard({
 
 /* ------------------------------- Logger ------------------------------- */
 function Logger({
-  profile, acts, setActs, setProfile,
+  profile, acts, setActs,
 }: {
   profile: Profile; acts: Activity[];
-  setActs: (a: Activity[]) => void; setProfile: (p: Profile) => void;
+  setActs: (a: Activity[]) => void;
 }) {
   const [tab, setTab] = useState<"electricity" | "commute" | "lpg" | "flight">("commute");
   const [kwh, setKwh] = useState("");
@@ -299,10 +313,10 @@ function Logger({
 
   async function onScanFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting same file
+    e.target.value = "";
     if (!file) return;
     if (file.size > 4.5 * 1024 * 1024) { setScanMsg("Image too large (max ~4.5 MB)."); return; }
-    setScanning(true); setScanMsg("Reading your document with Gemini…");
+    setScanning(true); setScanMsg("Reading your document with Gemini...");
     try {
       const b64 = await new Promise<string>((res, rej) => {
         const r = new FileReader();
@@ -328,7 +342,7 @@ function Logger({
         setScanMsg(r.note || "Couldn't read that confidently. Enter it manually below.");
       }
     } catch {
-      setScanMsg("Scan failed. Enter it manually below.");
+      setScanMsg("Scan failed — check your connection and try again, or enter manually below.");
     } finally { setScanning(false); }
   }
 
@@ -345,9 +359,18 @@ function Logger({
       <span className="tinylabel">computed live with your state&apos;s factor</span>
 
       <label className="scanbtn" style={{ marginTop: 12 }}>
-        <input type="file" accept="image/*" hidden onChange={onScanFile} disabled={scanning} />
-        <span className="scan-ic" aria-hidden>⤓</span>
-        {scanning ? "Scanning…" : "Scan electricity bill or fuel receipt"}
+        <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={onScanFile} disabled={scanning} />
+        {scanning ? (
+          <>
+            <span className="loading-spinner sm" />
+            Scanning...
+          </>
+        ) : (
+          <>
+            <span className="scan-ic" aria-hidden>&#8595;</span>
+            Scan electricity bill or fuel receipt
+          </>
+        )}
         <span className="scan-tag">Gemini</span>
       </label>
       {scanMsg && <p className="scan-msg">{scanMsg}</p>}
@@ -363,36 +386,44 @@ function Logger({
       <div style={{ marginTop: 14 }}>
         {tab === "electricity" && (
           <div>
-            <label className="fld">Units used (kWh — from your bill)</label>
-            <input type="number" value={kwh} placeholder="e.g. 8" onChange={(e) => setKwh(e.target.value)} />
+            <label className="fld" htmlFor="log-kwh">Units used (kWh — from your bill)</label>
+            <input id="log-kwh" type="number" min={0} value={kwh} placeholder="e.g. 8"
+              onChange={(e) => setKwh(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()} />
           </div>
         )}
         {tab === "commute" && (
           <div className="row r2">
             <div>
-              <label className="fld">Mode</label>
-              <select value={mode} onChange={(e) => setMode(e.target.value)}>
+              <label className="fld" htmlFor="log-mode">Mode</label>
+              <select id="log-mode" value={mode} onChange={(e) => setMode(e.target.value)}>
                 {Object.entries(TRANSPORT_LABELS)
                   .filter(([k]) => k !== "domestic_flight")
                   .map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div>
-              <label className="fld">Distance (km)</label>
-              <input type="number" value={km} placeholder="e.g. 12" onChange={(e) => setKm(e.target.value)} />
+              <label className="fld" htmlFor="log-km">Distance (km)</label>
+              <input id="log-km" type="number" min={0} value={km} placeholder="e.g. 12"
+                onChange={(e) => setKm(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submit()} />
             </div>
           </div>
         )}
         {tab === "flight" && (
           <div>
-            <label className="fld">Flight distance (km, one way)</label>
-            <input type="number" value={km} placeholder="e.g. 1150 (DEL–BLR)" onChange={(e) => setKm(e.target.value)} />
+            <label className="fld" htmlFor="log-flight">Flight distance (km, one way)</label>
+            <input id="log-flight" type="number" min={0} value={km} placeholder="e.g. 1150 (DEL-BLR)"
+              onChange={(e) => setKm(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()} />
           </div>
         )}
         {tab === "lpg" && (
           <div>
-            <label className="fld">LPG cylinders used (14.2 kg each)</label>
-            <input type="number" step="0.1" value={cyl} placeholder="e.g. 1" onChange={(e) => setCyl(e.target.value)} />
+            <label className="fld" htmlFor="log-lpg">LPG cylinders used (14.2 kg each)</label>
+            <input id="log-lpg" type="number" min={0} step="0.1" value={cyl} placeholder="e.g. 1"
+              onChange={(e) => setCyl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()} />
           </div>
         )}
         <button className="btn sm" style={{ marginTop: 12 }} onClick={submit}>Add to today</button>
@@ -401,18 +432,26 @@ function Logger({
       <div style={{ marginTop: 16 }}>
         {acts.length === 0
           ? <p className="empty" style={{ padding: "18px 0" }}>No activity yet. Add your commute to begin.</p>
-          : acts.slice(0, 5).map((a) => (
+          : acts.slice(0, 8).map((a) => (
             <div className="logitem" key={a.id}>
               <div>
                 {labelOf(a)}
-                <div className="meta">{a.date}</div>
+                <div className="meta">{a.date}{a.scanned ? " · scanned" : ""}</div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span className="metric md">{a.kg} <span className="unit">kg</span></span>
-                <button className="del" onClick={() => setActs(acts.filter((x) => x.id !== a.id))}>remove</button>
+                <button className="del"
+                  onClick={() => setActs(acts.filter((x) => x.id !== a.id))}
+                  aria-label={`Remove ${labelOf(a)}`}
+                >remove</button>
               </div>
             </div>
           ))}
+        {acts.length > 8 && (
+          <p className="tinylabel" style={{ textAlign: "center", paddingTop: 8 }}>
+            + {acts.length - 8} more entries
+          </p>
+        )}
       </div>
     </div>
   );
@@ -422,6 +461,6 @@ function labelOf(a: Activity): string {
   if (a.type === "electricity") return `Electricity · ${a.kwh} kWh`;
   if (a.type === "lpg") return `Cooking · ${a.cylinders} cylinder${(a.cylinders ?? 0) > 1 ? "s" : ""}`;
   if (a.type === "flight") return `Flight · ${a.km} km`;
-  if (a.type === "fuel") return `${a.fuel === "diesel" ? "Diesel" : "Petrol"} · ${a.litres} L${a.scanned ? " · scanned" : ""}`;
+  if (a.type === "fuel") return `${a.fuel === "diesel" ? "Diesel" : "Petrol"} · ${a.litres} L`;
   return `${TRANSPORT_LABELS[a.mode ?? ""] ?? "Commute"} · ${a.km} km`;
 }
