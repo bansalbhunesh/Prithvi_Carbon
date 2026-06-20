@@ -1,5 +1,7 @@
 # Prithvi — your carbon footprint, the Indian way
 
+**Live:** [prithvi-carbon.vercel.app](https://prithvi-carbon.vercel.app)
+
 A personal carbon tracker built for India, not ported from the West. Snap your
 electricity bill or fuel receipt and **Gemini reads it**; a **deterministic,
 fully-sourced engine does the CO₂ math**. Track your week, see where you stand
@@ -12,8 +14,34 @@ footprint.
 
 Prithvi maps 1:1 to the three verbs in that brief:
 - **Understand** -> India-calibrated, auditable emission math with a transparent `/methodology` page.
-- **Track** -> fast logging (manual + Gemini bill/receipt scan), a 7-day trend, streak stats.
+- **Track** -> fast logging (manual + Gemini bill/receipt scan), a 7-day trend, streak gamification, annual projection.
 - **Reduce** -> an impact x feasibility engine that surfaces *your* biggest lever first.
+
+## Why this wins
+
+| What judges look for | How Prithvi delivers |
+|---|---|
+| **Personalization** | State-specific grid factor, household size, diet type — every number is calibrated to *where you actually live* |
+| **AI integration** | Gemini reads electricity bills and fuel receipts — but never invents emission figures (deterministic math only) |
+| **Engagement** | Streak gamification, annual projection with tree equivalence, social sharing, toast feedback on every action |
+| **India-specific** | CEA v21.0 grid factors, auto-rickshaw/two-wheeler modes, LPG cylinders, veg/non-veg diet baseline |
+| **Production quality** | Dark mode, PWA installable, mobile-first responsive, 40 unit tests, security-hardened API |
+| **Transparency** | Every factor linked to its source on `/methodology` — no black boxes |
+
+## 60-second judge demo
+
+1. **Land** → India-calibrated onboarding, grid factor preview with green/clay tag
+2. **"Explore a sample week"** → instant dashboard, toast confirms
+3. **Stats row** → vs yesterday, 7-day avg, streak days, yearly estimate
+4. **Annual card** → tonnes/year + tree count + comparison bar (You vs India vs World)
+5. **Trend** → 7-day bars with India average dashed line
+6. **Gauge** → gradient track from net-zero to world average
+7. **Breakdown** → category bars with emoji icons
+8. **Biggest levers** → personalized recommendations ranked by YOUR impact × feasibility
+9. **Scan a bill** → upload photo, Gemini reads it, toast shows kg CO₂
+10. **Share** → Web Share API or clipboard — challenge friends
+11. **Dark mode** → toggle system preference for full dark theme
+12. **Mobile** → open on phone, installable PWA
 
 ## The headline idea: AI reads, audited math calculates
 
@@ -85,11 +113,14 @@ else runs fully. Run the tests with `npm test` (40 unit tests).
 ## Deploy (Vercel, zero config)
 
 ```bash
-git init && git add -A && git commit -m "Prithvi"
-gh repo create prithvi-carbon --public --source=. --push
-npx vercel --prod
-# In the Vercel dashboard, add env var GEMINI_API_KEY (and optionally GEMINI_MODEL).
+git push origin main
+# Connect repo in Vercel dashboard → auto-deploys
+# Add env var: GEMINI_API_KEY = your Google AI Studio key
+# Optional: GEMINI_MODEL (defaults to gemini-2.0-flash)
 ```
+
+No build config needed — Vercel auto-detects Next.js. The app works without a
+Gemini key (scanning is disabled, everything else runs fully).
 
 ## Built with Google Antigravity
 
@@ -114,3 +145,14 @@ in Security, Architecture, and Test modes before submission.
 | Diet (veg->non-veg) | 4.6 -> 8.3 kg/day | ICAR-IARI (Pathak et al.) + CarbonCrux |
 
 Factors are documented and directional; swap in newer CEA versions as published.
+
+## Feature highlights
+
+- **Toast notifications** — animated slide-up feedback on every action
+- **Annual projection** — extrapolates daily footprint to tonnes/year with tree-offset equivalence
+- **Streak gamification** — consecutive days under India's average, visible in stats row
+- **Social sharing** — Web Share API with clipboard fallback
+- **Dark mode** — full `prefers-color-scheme: dark` support
+- **PWA installable** — manifest.json with SVG icons, standalone display
+- **Mobile-first** — 44px touch targets, 16px inputs (no iOS zoom), responsive grid
+- **Accessible** — skip-to-content link, semantic HTML, reduced-motion support
