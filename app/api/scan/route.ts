@@ -7,10 +7,7 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export function GET() {
-  return NextResponse.json(
-    { ok: false, error: "Method not allowed. Use POST." },
-    { status: 405, headers: { Allow: "POST" } },
-  );
+  return NextResponse.json({ error: "Use POST" }, { status: 405 });
 }
 
 export async function POST(req: NextRequest) {

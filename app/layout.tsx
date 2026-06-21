@@ -32,30 +32,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <a href="#main" className="skip-link">Skip to content</a>
-        <header className="topbar" role="banner">
+        <header className="topbar">
           <div className="wrap topbar-in">
-            <a href="/" className="brand" style={{ textDecoration: "none" }} aria-label="Prithvi home">
+            <a href="/" className="brand" style={{ textDecoration: "none" }}>
               <span className="dot" aria-hidden="true" />
               Prithvi
-              <span className="sub" aria-hidden="true">carbon · India</span>
+              <span className="sub">carbon · India</span>
             </a>
-            <nav aria-label="Main navigation" style={{ display: "flex", gap: 18, alignItems: "center" }}>
+            <nav style={{ display: "flex", gap: 18, alignItems: "center" }}>
               <a className="navlink" href="/">Dashboard</a>
               <a className="navlink" href="/methodology">Methodology</a>
             </nav>
           </div>
         </header>
-        <main id="main" role="main">
+        <div id="main">
           {children}
-        </main>
-        <footer role="contentinfo">
+        </div>
+        <footer>
           <div className="footer-badge">
             Built for <b>Google PromptWars · Challenge 3</b>
           </div>
-          <p>
-            Prithvi · India-calibrated carbon math · CEA v21.0 grid factor ·{" "}
-            <a href="/methodology">See every factor &amp; its source</a>
-          </p>
+          Prithvi · India-calibrated carbon math · CEA v21.0 grid factor ·{" "}
+          <a href="/methodology">See every factor &amp; its source</a>
         </footer>
       </body>
     </html>

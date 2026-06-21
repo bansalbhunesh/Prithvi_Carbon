@@ -6,7 +6,7 @@
  */
 export default function Error({ reset }: { error: Error; reset: () => void }) {
   return (
-    <section className="wrap" role="alert" style={{ paddingTop: 80, paddingBottom: 80, textAlign: "center" }}>
+    <main className="wrap" style={{ paddingTop: 80, paddingBottom: 80, textAlign: "center" }}>
       <span className="eyebrow">Something interrupted</span>
       <h1 className="page" style={{ marginTop: 8 }}>Let&apos;s try that again.</h1>
       <p className="lead" style={{ margin: "0 auto 22px" }}>
@@ -14,6 +14,6 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
         browser — reloading the view usually fixes it.
       </p>
       <button className="btn" onClick={reset}>Reload the dashboard</button>
-    </section>
+    </main>
   );
 }

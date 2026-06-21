@@ -7,7 +7,7 @@ export const metadata = { title: "Methodology — Prithvi" };
 
 export default function Methodology() {
   return (
-    <article className="wrap" style={{ paddingTop: 32, paddingBottom: 60 }}>
+    <main className="wrap" style={{ paddingTop: 32, paddingBottom: 60 }}>
       <span className="eyebrow">Auditable by design</span>
       <h1 className="page">Every number traces to a source.</h1>
       <p className="lead">
@@ -91,6 +91,6 @@ export default function Methodology() {
           </p>
         </section>
       </div>
-    </article>
+    </main>
   );
 }
