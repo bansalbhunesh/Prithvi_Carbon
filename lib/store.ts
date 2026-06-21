@@ -168,4 +168,6 @@ export const INDIAN_STATES = [
   "All India", "Delhi", "Maharashtra", "Karnataka", "Tamil Nadu", "Kerala",
   "Gujarat", "Uttar Pradesh", "Rajasthan", "Telangana", "West Bengal",
   "Madhya Pradesh", "Chhattisgarh", "Himachal Pradesh",
-];
+] as const;
+
+export type IndianState = (typeof INDIAN_STATES)[number];

@@ -9,35 +9,40 @@ import {
 import { BENCHMARKS, DIET_LABELS, TRANSPORT_LABELS, gridFactor, round1 } from "@/lib/factors";
 import { recommend } from "@/lib/recommend";
 
-const CAT_COLORS: Record<string, string> = {
+type Category = "electricity" | "transport" | "cooking" | "diet";
+
+const CAT_COLORS: Record<Category, string> = {
   electricity: "#cf7434",
   transport: "#3a7a8c",
   cooking: "#6b4a3a",
   diet: "#1f8a5b",
 };
 
-const CAT_ICONS: Record<string, string> = {
+const CAT_ICONS: Record<Category, string> = {
   electricity: "⚡",
   transport: "🚗",
   cooking: "🔥",
   diet: "🌿",
 };
 
-/* ---- Toast system ---- */
+const ACTIVITY_MAX = 100;
+const TOAST_DURATION_MS = 3000;
+const TREE_OFFSET_TONNES = 0.022;
+
 function useToast() {
   const [msg, setMsg] = useState<string | null>(null);
-  const t = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const show = useCallback((m: string) => {
-    if (t.current) clearTimeout(t.current);
+    if (timerRef.current) clearTimeout(timerRef.current);
     setMsg(m);
-    t.current = setTimeout(() => setMsg(null), 3000);
+    timerRef.current = setTimeout(() => setMsg(null), TOAST_DURATION_MS);
   }, []);
   return { msg, show };
 }
 
 function Toast({ msg }: { msg: string | null }) {
   if (!msg) return null;
-  return <div className="toast">{msg}</div>;
+  return <div className="toast" role="status" aria-live="polite">{msg}</div>;
 }
 
 export default function Page() {
@@ -62,10 +67,10 @@ export default function Page() {
 
   if (!ready) {
     return (
-      <main className="wrap" style={{ padding: 80, textAlign: "center" }}>
-        <div className="loading-spinner" />
+      <section className="wrap" style={{ padding: 80, textAlign: "center" }} aria-busy="true">
+        <div className="loading-spinner" role="status" aria-label="Loading" />
         <p className="tinylabel" style={{ marginTop: 16 }}>Loading Prithvi...</p>
-      </main>
+      </section>
     );
   }
 
@@ -89,75 +94,86 @@ export default function Page() {
 function Onboarding({ onDone, onDemo }: { onDone: (p: Profile) => void; onDemo: () => void }) {
   const [p, setP] = useState<Profile>(DEFAULT_PROFILE);
   const canSubmit = p.name.trim().length > 0;
+  const gridValue = gridFactor(p.state);
+
+  const handleSubmit = useCallback(() => {
+    if (canSubmit) onDone(p);
+  }, [canSubmit, onDone, p]);
 
   return (
-    <main className="wrap" style={{ paddingTop: 48, paddingBottom: 60 }}>
+    <section className="wrap" aria-labelledby="ob-heading" style={{ paddingTop: 48, paddingBottom: 60 }}>
       <span className="eyebrow reveal reveal-1">Set up · 30 seconds</span>
-      <h1 className="page reveal reveal-2">Most carbon apps use<br />foreign math. This one<br />is built for India.</h1>
+      <h1 id="ob-heading" className="page reveal reveal-2">Most carbon apps use<br />foreign math. This one<br />is built for India.</h1>
       <p className="lead reveal reveal-3">
         Your grid runs on coal, your commute might be an auto, your diet is probably
         vegetarian. Generic trackers get all of that wrong. Tell us three things and
-        every number after this is calibrated to <i>where you actually live</i>.
+        every number after this is calibrated to <em>where you actually live</em>.
       </p>
 
-      <div className="card pad reveal reveal-4" style={{ marginTop: 28, maxWidth: 560 }}>
-        <div className="row r2">
-          <div>
-            <label className="fld" htmlFor="ob-name">Your name</label>
-            <input id="ob-name" value={p.name} placeholder="e.g. Bhunesh" autoComplete="given-name"
-              onChange={(e) => setP({ ...p, name: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && canSubmit && onDone(p)} />
+      <form className="card pad reveal reveal-4" style={{ marginTop: 28, maxWidth: 560 }} onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+        <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+          <legend className="sr-only">Your profile</legend>
+          <div className="row r2">
+            <div>
+              <label className="fld" htmlFor="ob-name">Your name</label>
+              <input id="ob-name" value={p.name} placeholder="e.g. Bhunesh" autoComplete="given-name" required
+                onChange={(e) => setP({ ...p, name: e.target.value })} />
+            </div>
+            <div>
+              <label className="fld" htmlFor="ob-state">State (sets your grid factor)</label>
+              <select id="ob-state" value={p.state} onChange={(e) => setP({ ...p, state: e.target.value })}>
+                {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="fld" htmlFor="ob-state">State (sets your grid factor)</label>
-            <select id="ob-state" value={p.state} onChange={(e) => setP({ ...p, state: e.target.value })}>
-              {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
-            </select>
+          <div className="row r2" style={{ marginTop: 14 }}>
+            <div>
+              <label className="fld" htmlFor="ob-diet">Diet</label>
+              <select id="ob-diet" value={p.diet} onChange={(e) => setP({ ...p, diet: e.target.value })}>
+                {Object.entries(DIET_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="fld" htmlFor="ob-hh">People in household</label>
+              <input id="ob-hh" type="number" min={1} max={20} value={p.household}
+                aria-describedby="hh-hint"
+                onChange={(e) => setP({ ...p, household: Math.max(1, Math.min(20, +e.target.value || 1)) })} />
+              <span id="hh-hint" className="sr-only">Electricity and cooking emissions are divided by this number</span>
+            </div>
           </div>
-        </div>
-        <div className="row r2" style={{ marginTop: 14 }}>
-          <div>
-            <label className="fld" htmlFor="ob-diet">Diet</label>
-            <select id="ob-diet" value={p.diet} onChange={(e) => setP({ ...p, diet: e.target.value })}>
-              {Object.entries(DIET_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="fld" htmlFor="ob-hh">People in household</label>
-            <input id="ob-hh" type="number" min={1} max={20} value={p.household}
-              onChange={(e) => setP({ ...p, household: Math.max(1, Math.min(20, +e.target.value || 1)) })} />
-          </div>
-        </div>
-        <div className="grid-factor-preview">
-          Your grid: <b>{round1(gridFactor(p.state) * 1000) / 1000}</b> kg CO2/kWh
-          {p.state !== "All India" && gridFactor(p.state) < 0.71 && <span className="gf-tag green">cleaner than average</span>}
-          {gridFactor(p.state) > 0.71 && <span className="gf-tag clay">dirtier than average</span>}
+        </fieldset>
+        <div className="grid-factor-preview" aria-live="polite">
+          Your grid: <b>{round1(gridValue * 1000) / 1000}</b> kg CO2/kWh
+          {p.state !== "All India" && gridValue < 0.71 && <span className="gf-tag green">cleaner than average</span>}
+          {gridValue > 0.71 && <span className="gf-tag clay">dirtier than average</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 18, flexWrap: "wrap" }}>
-          <button className="btn" disabled={!canSubmit} onClick={() => canSubmit && onDone(p)}>
+          <button type="submit" className="btn" disabled={!canSubmit}>
             Start tracking
           </button>
-          <button className="linkbtn" onClick={onDemo}>or explore a sample week first</button>
+          <button type="button" className="linkbtn" onClick={onDemo}>or explore a sample week first</button>
         </div>
-      </div>
+      </form>
 
-      <div className="ob-features reveal reveal-4">
-        <div className="ob-feat"><span>&#128247;</span><b>Scan bills</b>Gemini reads your electricity bill or fuel receipt</div>
-        <div className="ob-feat"><span>&#128202;</span><b>Track daily</b>7-day trend, per-person breakdown, India benchmark</div>
-        <div className="ob-feat"><span>&#127793;</span><b>Reduce smart</b>Actions ranked by YOUR biggest lever, not generic tips</div>
+      <div className="ob-features reveal reveal-4" role="list" aria-label="Key features">
+        <div className="ob-feat" role="listitem"><span aria-hidden="true">&#128247;</span><b>Scan bills</b>Gemini reads your electricity bill or fuel receipt</div>
+        <div className="ob-feat" role="listitem"><span aria-hidden="true">&#128202;</span><b>Track daily</b>7-day trend, per-person breakdown, India benchmark</div>
+        <div className="ob-feat" role="listitem"><span aria-hidden="true">&#127793;</span><b>Reduce smart</b>Actions ranked by YOUR biggest lever, not generic tips</div>
       </div>
-    </main>
+    </section>
   );
 }
 
 /* ----------------------------- Dashboard ------------------------------ */
-function Dashboard({
-  profile, acts, setProfile, setActs, toast,
-}: {
-  profile: Profile; acts: Activity[];
-  setProfile: (p: Profile) => void; setActs: (a: Activity[]) => void;
+interface DashboardProps {
+  profile: Profile;
+  acts: Activity[];
+  setProfile: (p: Profile) => void;
+  setActs: (a: Activity[]) => void;
   toast: { show: (m: string) => void };
-}) {
+}
+
+function Dashboard({ profile, acts, setProfile, setActs, toast }: DashboardProps) {
   const b = useMemo(() => dailyBreakdown(profile, acts), [profile, acts]);
   const recos = useMemo(() => recommend(profile, b), [profile, b]);
   const series = useMemo(() => dailySeries(profile, acts, 7), [profile, acts]);
@@ -172,11 +188,9 @@ function Dashboard({
   const pinPct = Math.max(2, Math.min(98, (b.total / BENCHMARKS.world_avg) * 100));
   const vsIndia = round1(b.total - BENCHMARKS.india_avg);
 
-  // Annual projection
   const annualTonnes = round1((b.total * 365) / 1000);
-  const treesNeeded = Math.ceil(annualTonnes / 0.022); // ~22 kg CO2 per tree per year
+  const treesNeeded = Math.ceil(annualTonnes / TREE_OFFSET_TONNES);
 
-  // Streak: consecutive days under India avg (from today backwards)
   const streak = useMemo(() => {
     let count = 0;
     for (let i = series.length - 1; i >= 0; i--) {
@@ -186,21 +200,21 @@ function Dashboard({
     return count;
   }, [series]);
 
-  const cats: { key: keyof typeof CAT_COLORS; label: string; val: number }[] = [
+  const categories: { key: Category; label: string; val: number }[] = [
     { key: "electricity", label: "Electricity", val: b.electricity },
     { key: "transport", label: "Transport", val: b.transport },
     { key: "cooking", label: "Cooking", val: b.cooking },
     { key: "diet", label: "Diet", val: b.diet },
   ];
-  const max = Math.max(...cats.map((c) => c.val), 0.1);
+  const maxCatVal = Math.max(...categories.map((c) => c.val), 0.1);
 
   return (
-    <main className="wrap" style={{ paddingTop: 32, paddingBottom: 60 }}>
+    <section className="wrap" aria-labelledby="dash-heading" style={{ paddingTop: 32, paddingBottom: 60 }}>
       <div className="spread reveal reveal-1">
         <div>
-          <span className="eyebrow">Daily footprint{profile.name ? ` · ${profile.name}` : ""}</span>
+          <span id="dash-heading" className="eyebrow">Daily footprint{profile.name ? ` · ${profile.name}` : ""}</span>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginTop: 6 }}>
-            <span className="metric xl">{b.total}</span>
+            <span className="metric xl" aria-label={`${b.total} kilograms CO2 equivalent per day`}>{b.total}</span>
             <span className="unit" style={{ paddingBottom: 8 }}>kg CO2e / day</span>
           </div>
           <p className="lead" style={{ marginTop: 6 }}>
@@ -211,6 +225,7 @@ function Dashboard({
         </div>
         <button
           className="linkbtn"
+          aria-label="Reset all data and start over"
           onClick={() => { if (window.confirm("Reset all data and start over?")) { setActs([]); setProfile({ ...profile, onboarded: false }); } }}
         >
           Reset
@@ -218,8 +233,7 @@ function Dashboard({
       </div>
 
       <div className="stack" style={{ marginTop: 26 }}>
-        {/* Stats row */}
-        <div className="stats reveal reveal-1">
+        <div className="stats reveal reveal-1" role="group" aria-label="Key statistics">
           <div className="stat">
             <div className={`n ${dayDelta < 0 ? "down" : dayDelta > 0 ? "up" : ""}`}>
               {dayDelta > 0 ? "+" : ""}{dayDelta}
@@ -266,15 +280,14 @@ function Dashboard({
           </div>
         </div>
 
-        {/* Trend */}
-        <div className="card pad reveal reveal-2">
+        <section className="card pad reveal reveal-2" aria-labelledby="trend-heading">
           <div className="spread">
-            <h2 className="sec">Last 7 days</h2>
+            <h2 id="trend-heading" className="sec">Last 7 days</h2>
             <span className="tinylabel">
               {daysUnder}/7 under India avg
             </span>
           </div>
-          <div className="trend">
+          <div className="trend" role="img" aria-label={`7-day trend chart showing daily CO2 emissions. ${daysUnder} of 7 days under India average.`}>
             <div className="trend-target" style={{ bottom: `${(BENCHMARKS.india_avg / seriesMax) * 100}%` }}>
               <span>India avg {BENCHMARKS.india_avg}</span>
             </div>
@@ -290,15 +303,14 @@ function Dashboard({
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Gauge */}
-        <div className="card pad reveal reveal-3">
+        <section className="card pad reveal reveal-3" aria-labelledby="gauge-heading">
           <div className="spread">
-            <h2 className="sec">Where you stand</h2>
+            <h2 id="gauge-heading" className="sec">Where you stand</h2>
             <span className="tinylabel">per person · per day</span>
           </div>
-          <div className="gauge">
+          <div className="gauge" role="img" aria-label={`Gauge showing your ${b.total} kg daily footprint relative to India average ${BENCHMARKS.india_avg} and world average ${BENCHMARKS.world_avg}`}>
             <div className="gauge-track">
               <div className="gauge-pin" style={{ left: `${pinPct}%` }} title={`You: ${b.total} kg`} />
             </div>
@@ -308,22 +320,21 @@ function Dashboard({
               <div className="gauge-mark" style={{ textAlign: "right" }}><b>{BENCHMARKS.world_avg}</b>World avg</div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Breakdown + Log */}
         <div className="grid grid-2">
-          <div className="card pad">
-            <h2 className="sec">What it&apos;s made of</h2>
+          <section className="card pad" aria-labelledby="breakdown-heading">
+            <h2 id="breakdown-heading" className="sec">What it&apos;s made of</h2>
             <span className="tinylabel">kg CO2e / day, per person</span>
             <div style={{ marginTop: 14 }}>
-              {cats.map((c) => (
+              {categories.map((c) => (
                 <div className="bar-row" key={c.key}>
                   <div className="bar-label">
-                    <span className="swatch" style={{ background: CAT_COLORS[c.key] }} />
+                    <span className="swatch" style={{ background: CAT_COLORS[c.key] }} aria-hidden="true" />
                     {c.label}
                   </div>
-                  <div className="bar-track">
-                    <div className="bar-fill" style={{ width: `${(c.val / max) * 100}%`, background: CAT_COLORS[c.key] }} />
+                  <div className="bar-track" role="progressbar" aria-valuenow={c.val} aria-valuemin={0} aria-valuemax={round1(maxCatVal)} aria-label={`${c.label}: ${c.val} kg`}>
+                    <div className="bar-fill" style={{ width: `${(c.val / maxCatVal) * 100}%`, background: CAT_COLORS[c.key] }} />
                   </div>
                   <span className="metric md">{c.val}</span>
                 </div>
@@ -332,26 +343,25 @@ function Dashboard({
             <p className="tinylabel" style={{ marginTop: 14 }}>
               Diet is a daily baseline. Electricity &amp; cooking split across {profile.household} {profile.household > 1 ? "people" : "person"}.
             </p>
-          </div>
+          </section>
 
           <Logger profile={profile} acts={acts} setActs={setActs} toast={toast} />
         </div>
 
-        {/* Recommendations */}
-        <div className="card pad">
+        <section className="card pad" aria-labelledby="reco-heading">
           <div className="spread">
             <div>
-              <h2 className="sec">Your biggest levers</h2>
+              <h2 id="reco-heading" className="sec">Your biggest levers</h2>
               <span className="tinylabel">ranked by impact x feasibility — for YOUR footprint</span>
             </div>
           </div>
-          <div style={{ marginTop: 16 }}>
+          <ol style={{ marginTop: 16, listStyle: "none", padding: 0 }} aria-label="Reduction recommendations">
             {recos.length === 0 && (
-              <p className="empty">Log a few activities and your personalized reduction plan appears here.</p>
+              <li><p className="empty">Log a few activities and your personalized reduction plan appears here.</p></li>
             )}
             {recos.map((r, i) => (
-              <div className="reco" key={i}>
-                <div className="reco-rank">{String(i + 1).padStart(2, "0")}</div>
+              <li className="reco" key={r.title}>
+                <div className="reco-rank" aria-hidden="true">{String(i + 1).padStart(2, "0")}</div>
                 <div className="reco-body">
                   <div className="reco-title">{r.title}</div>
                   <div className="reco-detail">{r.detail}</div>
@@ -359,23 +369,22 @@ function Dashboard({
                     {CAT_ICONS[r.category]} {r.category}
                   </span>
                 </div>
-                <div className="reco-save">
+                <div className="reco-save" aria-label={`Saves ${round1(r.saveKgDay)} kg per day`}>
                   <div className="n">-{round1(r.saveKgDay)}</div>
                   <div className="l">kg/day</div>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
-        </div>
+          </ol>
+        </section>
 
-        {/* Share card */}
-        <div className="card pad share-card">
+        <section className="card pad share-card" aria-labelledby="share-heading">
           <div className="share-inner">
             <div>
-              <h2 className="sec">Share your footprint</h2>
+              <h2 id="share-heading" className="sec">Share your footprint</h2>
               <p className="lead" style={{ fontSize: 13 }}>Challenge your friends and family to track theirs</p>
             </div>
-            <button className="btn ghost" onClick={() => {
+            <button className="btn ghost" aria-label="Share your carbon footprint" onClick={() => {
               const text = `My daily carbon footprint is ${b.total} kg CO2e (${annualTonnes} tonnes/yr). ${vsIndia <= 0 ? `That's ${Math.abs(vsIndia)} kg below the Indian average!` : `Trying to cut ${vsIndia} kg to match the Indian average.`} Track yours at prithvi-carbon.vercel.app`;
               if (navigator.share) {
                 navigator.share({ title: "My Carbon Footprint — Prithvi", text }).catch(() => {});
@@ -386,21 +395,33 @@ function Dashboard({
               Share
             </button>
           </div>
-        </div>
+        </section>
       </div>
-    </main>
+    </section>
   );
 }
 
 /* ------------------------------- Logger ------------------------------- */
-function Logger({
-  profile, acts, setActs, toast,
-}: {
-  profile: Profile; acts: Activity[];
+type LogTab = "electricity" | "commute" | "lpg" | "flight";
+
+const TAB_LABELS: Record<LogTab, string> = {
+  commute: "Commute",
+  electricity: "Power",
+  lpg: "Cooking",
+  flight: "Flight",
+};
+
+const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
+
+interface LoggerProps {
+  profile: Profile;
+  acts: Activity[];
   setActs: (a: Activity[]) => void;
   toast: { show: (m: string) => void };
-}) {
-  const [tab, setTab] = useState<"electricity" | "commute" | "lpg" | "flight">("commute");
+}
+
+function Logger({ profile, acts, setActs, toast }: LoggerProps) {
+  const [tab, setTab] = useState<LogTab>("commute");
   const [kwh, setKwh] = useState("");
   const [mode, setMode] = useState("petrol_car");
   const [km, setKm] = useState("");
@@ -410,10 +431,10 @@ function Logger({
 
   const today = new Date().toISOString().slice(0, 10);
 
-  function add(partial: Omit<Activity, "id" | "kg">) {
+  function add(partial: Omit<Activity, "id" | "kg">): number {
     const kg = computeActivityKg(partial, profile.state);
-    const a: Activity = { ...partial, id: uid(), kg };
-    setActs([a, ...acts].slice(0, 100));
+    const activity: Activity = { ...partial, id: uid(), kg };
+    setActs([activity, ...acts].slice(0, ACTIVITY_MAX));
     return kg;
   }
 
@@ -421,7 +442,7 @@ function Logger({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.size > 4.5 * 1024 * 1024) { setScanMsg("Image too large (max ~4.5 MB)."); return; }
+    if (file.size > MAX_FILE_SIZE) { setScanMsg("Image too large (max ~4.5 MB)."); return; }
     setScanning(true); setScanMsg("Gemini is reading your document...");
     try {
       const b64 = await new Promise<string>((res, rej) => {
@@ -483,31 +504,31 @@ function Logger({
       <span className="tinylabel">computed live with your state&apos;s grid factor</span>
 
       <label className="scanbtn" style={{ marginTop: 12 }}>
-        <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={onScanFile} disabled={scanning} />
+        <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={onScanFile} disabled={scanning} aria-label="Upload electricity bill or fuel receipt for AI scanning" />
         {scanning ? (
           <>
-            <span className="loading-spinner sm" />
+            <span className="loading-spinner sm" role="status" aria-label="Scanning" />
             Gemini is reading...
           </>
         ) : (
           <>
-            <span className="scan-ic" aria-hidden>&#128247;</span>
+            <span className="scan-ic" aria-hidden="true">&#128247;</span>
             Scan electricity bill or fuel receipt
           </>
         )}
-        <span className="scan-tag">AI</span>
+        <span className="scan-tag" aria-hidden="true">AI</span>
       </label>
-      {scanMsg && <p className="scan-msg">{scanMsg}</p>}
+      {scanMsg && <p className="scan-msg" role="status" aria-live="polite">{scanMsg}</p>}
 
-      <div className="seg" style={{ marginTop: 12 }}>
+      <div className="seg" role="tablist" aria-label="Activity type" style={{ marginTop: 12 }}>
         {(["commute", "electricity", "lpg", "flight"] as const).map((t) => (
-          <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
-            {t === "commute" ? "Commute" : t === "electricity" ? "Power" : t === "lpg" ? "Cooking" : "Flight"}
+          <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
 
-      <div style={{ marginTop: 14 }}>
+      <div role="tabpanel" aria-label={`${TAB_LABELS[tab]} input`} style={{ marginTop: 14 }}>
         {tab === "electricity" && (
           <div>
             <label className="fld" htmlFor="log-kwh">Units used (kWh — from your bill)</label>
@@ -553,29 +574,29 @@ function Logger({
         <button className="btn sm" style={{ marginTop: 12 }} onClick={submit}>Add to today</button>
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <ul style={{ marginTop: 16, listStyle: "none", padding: 0 }} aria-label="Activity log">
         {acts.length === 0
-          ? <p className="empty" style={{ padding: "18px 0" }}>No activity yet. Add your commute to begin.</p>
+          ? <li><p className="empty" style={{ padding: "18px 0" }}>No activity yet. Add your commute to begin.</p></li>
           : acts.slice(0, 8).map((a) => (
-            <div className="logitem" key={a.id}>
+            <li className="logitem" key={a.id}>
               <div>
                 {labelOf(a)}
                 <div className="meta">{a.date}{a.scanned ? " · scanned" : ""}</div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span className="metric md">{a.kg} <span className="unit">kg</span></span>
-                <button className="del" onClick={() => { setActs(acts.filter((x) => x.id !== a.id)); toast.show("Entry removed"); }} aria-label="Remove entry">
+                <button className="del" onClick={() => { setActs(acts.filter((x) => x.id !== a.id)); toast.show("Entry removed"); }} aria-label={`Remove ${labelOf(a)}`}>
                   &times;
                 </button>
               </div>
-            </div>
+            </li>
           ))}
         {acts.length > 8 && (
-          <p className="tinylabel" style={{ textAlign: "center", paddingTop: 8 }}>
+          <li className="tinylabel" style={{ textAlign: "center", paddingTop: 8 }}>
             + {acts.length - 8} more entries
-          </p>
+          </li>
         )}
-      </div>
+      </ul>
     </div>
   );
 }
