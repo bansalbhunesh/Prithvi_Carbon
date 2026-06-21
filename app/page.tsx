@@ -23,7 +23,7 @@ const CAT_ICONS: Record<string, string> = {
   diet: "🌿",
 };
 
-/* ---- Toast system ---- */
+/** Lightweight toast state: shows a message and auto-dismisses after a delay. */
 function useToast() {
   const [msg, setMsg] = useState<string | null>(null);
   const t = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -40,6 +40,11 @@ function Toast({ msg }: { msg: string | null }) {
   return <div className="toast">{msg}</div>;
 }
 
+/**
+ * Root client page. Hydrates profile + activities from localStorage, then
+ * routes between onboarding and the dashboard. Renders a spinner until the
+ * persisted state has loaded to avoid a flash of the wrong view.
+ */
 export default function Page() {
   const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
   const [acts, setActs] = useState<Activity[]>([]);
@@ -86,6 +91,11 @@ export default function Page() {
 }
 
 /* ----------------------------- Onboarding ----------------------------- */
+/**
+ * First-run setup. Collects the three calibration inputs (state, diet,
+ * household) and previews the resulting grid factor live, so the India-specific
+ * math is visible before the user even starts logging.
+ */
 function Onboarding({ onDone, onDemo }: { onDone: (p: Profile) => void; onDemo: () => void }) {
   const [p, setP] = useState<Profile>(DEFAULT_PROFILE);
   const canSubmit = p.name.trim().length > 0;
@@ -151,6 +161,11 @@ function Onboarding({ onDone, onDemo }: { onDone: (p: Profile) => void; onDemo: 
 }
 
 /* ----------------------------- Dashboard ------------------------------ */
+/**
+ * The main view once onboarded. Derives every figure (breakdown, 7-day trend,
+ * streak, annual projection, recommendations) from profile + activities via
+ * memoised pure functions, and hosts the activity Logger.
+ */
 function Dashboard({
   profile, acts, setProfile, setActs, toast,
 }: {
@@ -393,6 +408,11 @@ function Dashboard({
 }
 
 /* ------------------------------- Logger ------------------------------- */
+/**
+ * Activity entry panel: AI document scan plus manual tabs for commute, power,
+ * cooking and flights. Each entry is costed immediately via computeActivityKg
+ * and prepended to the (capped) activity list.
+ */
 function Logger({
   profile, acts, setActs, toast,
 }: {
@@ -580,6 +600,7 @@ function Logger({
   );
 }
 
+/** Render a one-line, icon-prefixed summary of a logged activity. */
 function labelOf(a: Activity): string {
   if (a.type === "electricity") return `⚡ Electricity · ${a.kwh} kWh`;
   if (a.type === "lpg") return `🔥 Cooking · ${a.cylinders} cylinder${(a.cylinders ?? 0) > 1 ? "s" : ""}`;

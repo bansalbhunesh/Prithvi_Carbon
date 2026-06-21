@@ -1,15 +1,33 @@
 import { Breakdown, Profile } from "./store";
 import { dietDailyKg } from "./factors";
 
+/** A single, actionable reduction suggestion ranked for one user's footprint. */
 export type Reco = {
+  /** Short imperative headline, e.g. "Cut AC runtime by 2 hrs/day". */
   title: string;
+  /** One-sentence rationale shown beneath the title. */
   detail: string;
+  /** Estimated daily CO2 saving in kg if the user adopts this action. */
   saveKgDay: number;
+  /** How realistic the action is to adopt, 0–1 (higher = easier). */
   feasibility: number;
+  /** Which footprint category the action targets. */
   category: "electricity" | "transport" | "cooking" | "diet";
+  /** Ranking key: saveKgDay × feasibility (impact weighted by realism). */
   score: number;
 };
 
+/**
+ * Build a ranked, personalised reduction plan from a user's daily breakdown.
+ *
+ * Suggestions are gated by category thresholds so users only see levers that
+ * are actually material for them, then ranked by `saveKgDay × feasibility` so
+ * the highest-impact yet realistic action surfaces first. Returns at most five.
+ *
+ * @param profile - The user's profile (used for diet-shift suggestions).
+ * @param b - The user's computed daily breakdown.
+ * @returns Up to five recommendations, highest score first.
+ */
 export function recommend(profile: Profile, b: Breakdown): Reco[] {
   const out: Reco[] = [];
   const push = (r: Omit<Reco, "score">) =>
@@ -96,6 +114,7 @@ export function recommend(profile: Profile, b: Breakdown): Reco[] {
   return out.sort((a, b2) => b2.score - a.score).slice(0, 5);
 }
 
+/** Human-readable label for a diet key, used inside suggestion copy. */
 function labelFor(diet: string): string {
   const m: Record<string, string> = {
     vegan: "Vegan", vegetarian: "Vegetarian", eggetarian: "Eggetarian",

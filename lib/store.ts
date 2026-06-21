@@ -1,17 +1,32 @@
+/**
+ * store.ts — domain types, persistence, and daily aggregation.
+ * ------------------------------------------------------------------
+ * Owns the shapes that flow through the app (Profile, Activity) plus the
+ * pure functions that turn a log of activities into per-day, per-person
+ * footprints. All emission math is delegated to factors.ts so this layer
+ * stays about *aggregation*, not coefficients.
+ */
 import {
   electricityKg, transportKg, lpgKg, dietDailyKg, round1, FUEL_PER_LITRE,
 } from "./factors";
 
+/** A user's calibration inputs — everything that personalises the math. */
 export type Profile = {
   name: string;
+  /** Indian state (or "All India") — selects the grid emission factor. */
   state: string;
+  /** Diet key — sets the daily lifecycle food baseline. */
   diet: string;
+  /** People sharing electricity & cooking, used for per-person splitting. */
   household: number;
+  /** Whether the user has completed onboarding. */
   onboarded: boolean;
 };
 
+/** A single logged activity. Optional fields apply per `type`; `kg` is precomputed. */
 export type Activity = {
   id: string;
+  /** ISO date (YYYY-MM-DD) the activity is attributed to. */
   date: string;
   type: "electricity" | "commute" | "lpg" | "flight" | "fuel";
   kwh?: number;
@@ -20,7 +35,9 @@ export type Activity = {
   cylinders?: number;
   litres?: number;
   fuel?: string;
+  /** Computed CO2e for this activity, in kg. */
   kg: number;
+  /** True when the values came from a scanned document rather than manual entry. */
   scanned?: boolean;
 };
 
@@ -61,6 +78,11 @@ export function saveActivities(a: Activity[]) {
   try { localStorage.setItem(AKEY, JSON.stringify(a)); } catch { /* quota */ }
 }
 
+/**
+ * Compute the CO2e (kg) for one activity using the user's state grid factor.
+ * Missing numeric fields default to zero and unknown keys fall back safely,
+ * so a partial or malformed activity yields 0 rather than NaN.
+ */
 export function computeActivityKg(a: Omit<Activity, "kg" | "id">, state: string): number {
   if (a.type === "electricity") return round1(electricityKg(a.kwh ?? 0, state));
   if (a.type === "commute" || a.type === "flight")
@@ -81,6 +103,14 @@ export type Breakdown = {
   total: number;
 };
 
+/**
+ * Collapse a full activity log into one representative day's footprint.
+ *
+ * Electricity and cooking are split across the household and averaged over the
+ * number of distinct days logged; transport is per-person but still averaged
+ * over those days; diet is a fixed daily baseline. This yields a stable
+ * "typical day" figure regardless of how many days the user has recorded.
+ */
 export function dailyBreakdown(profile: Profile, acts: Activity[]): Breakdown {
   const days = new Set(acts.map((a) => a.date));
   const span = Math.max(days.size, 1);
@@ -107,10 +137,16 @@ export function dailyBreakdown(profile: Profile, acts: Activity[]): Breakdown {
   };
 }
 
+/** Short, collision-resistant id for client-side activity keys. */
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+/**
+ * Build an ascending series of the last `n` days (today last), each with its
+ * per-person total, for the trend chart. Days with no activity still carry the
+ * diet baseline so the line never drops to zero unrealistically.
+ */
 export function dailySeries(profile: Profile, acts: Activity[], n = 7) {
   const hh = Math.max(profile.household, 1);
   const diet = dietDailyKg(profile.diet);
@@ -132,6 +168,10 @@ export function dailySeries(profile: Profile, acts: Activity[], n = 7) {
   return out;
 }
 
+/**
+ * Produce a realistic week of sample data so judges and first-time users can
+ * explore the full dashboard instantly, without logging anything by hand.
+ */
 export function seedDemo(): { profile: Profile; acts: Activity[] } {
   const profile: Profile = {
     name: "Bhunesh", state: "Maharashtra", diet: "nonveg_light",
