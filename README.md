@@ -17,11 +17,34 @@
   No hallucinated carbon. Every number traceable to a published Indian source.</em>
 </p>
 
+<p align="center">
+  <img src="public/screenshots/03-dashboard.png" width="720" alt="Prithvi Dashboard" />
+</p>
+
 ---
 
 > **Google PromptWars - Challenge 3 - Carbon Footprint**
 >
 > *"Design a solution that helps individuals understand, track, and reduce their carbon footprint through simple actions and personalized insights."*
+
+---
+
+## Table of Contents
+
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Screenshots](#screenshots)
+- [How It Maps to the Brief](#how-it-maps-to-the-brief)
+- [60-Second Demo Script](#60-second-demo-script)
+- [Architecture](#architecture)
+- [Security](#security)
+- [Tests](#tests)
+- [Emission Factors](#emission-factors)
+- [Feature Highlights](#feature-highlights)
+- [Run Locally](#run-locally)
+- [Deploy to Vercel](#deploy-to-vercel)
+- [Tech Stack](#tech-stack)
+- [Built with Google Antigravity](#built-with-google-antigravity)
 
 ---
 
@@ -49,6 +72,60 @@ Then: **AI reads your documents, audited math calculates your CO2.**
 
 ---
 
+## Screenshots
+
+### Onboarding — India-calibrated setup in 30 seconds
+
+<p align="center">
+  <img src="public/screenshots/01-onboarding.png" width="720" alt="Onboarding screen with state selector, diet picker, and grid factor preview" />
+</p>
+
+> State-specific grid factor preview, diet selection, household size — every number after this is calibrated to *where you actually live*.
+
+### Dashboard — Your daily carbon footprint at a glance
+
+<p align="center">
+  <img src="public/screenshots/03-dashboard.png" width="720" alt="Dashboard showing daily footprint, stats row, annual projection, and 7-day trend" />
+</p>
+
+> 10.9 kg CO2e/day. 4-stat row (vs yesterday, 7-day avg, streak, yearly estimate). Annual projection with tree-offset count. 7-day trend chart with India-average dashed line.
+
+### Full Dashboard — Breakdown, recommendations, activity log, sharing
+
+<p align="center">
+  <img src="public/screenshots/04-dashboard-full.png" width="720" alt="Full dashboard with gauge, breakdown bars, recommendations, activity log, and share card" />
+</p>
+
+> Gauge (where you stand globally), category breakdown bars, personalized recommendations ranked by impact x feasibility, Gemini-powered bill scanner, activity log, and share card.
+
+### Dark Mode — Full dark theme support
+
+<p align="center">
+  <img src="public/screenshots/05-dark-mode.png" width="720" alt="Dashboard in dark mode" />
+</p>
+
+> Complete dark mode via `prefers-color-scheme: dark`. Every component, card, chart, and gradient adapted.
+
+### Mobile — Responsive, installable PWA
+
+<p align="center">
+  <img src="public/screenshots/06-mobile-dashboard.png" width="280" alt="Mobile dashboard view" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="public/screenshots/02-onboarding-mobile.png" width="280" alt="Mobile onboarding view" />
+</p>
+
+> 2-column stat grid on mobile, 4-column on desktop. 44px touch targets, 16px inputs (no iOS zoom). Installable as a PWA from the home screen.
+
+### Methodology — Every factor and its source
+
+<p align="center">
+  <img src="public/screenshots/07-methodology.png" width="720" alt="Methodology page showing emission factors with sources" />
+</p>
+
+> Transparent, auditable. Every emission factor linked to its published Indian source. No black boxes.
+
+---
+
 ## How It Maps to the Brief
 
 The challenge asks for three things. Prithvi delivers all three:
@@ -70,8 +147,8 @@ The challenge asks for three things. Prithvi delivers all three:
 | 1. **Land** | Onboarding with state selector, diet picker, grid factor preview | Immediately signals: this is India-specific |
 | 2. **Grid preview** | "Your grid: 0.866 kg CO2/kWh" with red "dirtier than average" tag | Real-time feedback before you even start |
 | 3. **"Explore sample week"** | Instant dashboard with 7 days of realistic data, toast confirms | Zero friction to see the full product |
-| 4. **Stats row** | 4 tiles: vs yesterday (-1.2), 7-day avg (9.8), streak (2d), yearly (3.6t) | Glanceable health metrics |
-| 5. **Annual projection** | Bar chart: You vs India avg (2.0t) vs World avg (4.7t) + tree count | "You need 164 trees to offset" - visceral |
+| 4. **Stats row** | 4 tiles: vs yesterday (-0.5), 7-day avg (10.9), streak (2d), yearly (4t) | Glanceable health metrics |
+| 5. **Annual projection** | Bar chart: You vs India avg (2.0t) vs World avg (4.7t) + tree count | "You need 182 trees to offset" - visceral |
 | 6. **7-day trend** | Colored bars with dashed India-average line, over/under coloring | Pattern recognition at a glance |
 | 7. **Gauge** | Gradient track: net-zero -> India avg -> World avg, pin shows you | Where you stand globally, one visual |
 | 8. **Breakdown** | Horizontal bars: Electricity, Transport, Cooking, Diet | See which category dominates |
@@ -141,7 +218,7 @@ lib/
   rate-limit.ts         Fixed-window rate limiter with periodic purge
 
 tests/                  252 tests: unit, integration, edge cases, stress
-public/                 PWA manifest, SVG icons
+public/                 PWA manifest, SVG icons, screenshots
 ```
 
 ---
@@ -219,6 +296,28 @@ All factors are documented in-app at `/methodology`. Swap in newer CEA versions 
 
 ---
 
+## Feature Highlights
+
+| Feature | Detail |
+|---|---|
+| **Gemini bill scanning** | Upload electricity bill or fuel receipt photo, AI extracts kWh/litres |
+| **State-specific grid** | 14 Indian states with CEA-sourced multipliers (Himachal 0.30x to Chhattisgarh 1.22x) |
+| **4-stat dashboard** | vs yesterday, 7-day average, streak days under India avg, yearly estimate |
+| **Annual projection** | Extrapolates daily footprint to tonnes/year with tree-offset equivalence |
+| **Streak gamification** | Tracks consecutive days under India's average carbon footprint |
+| **7-day trend chart** | CSS-only bar chart with dashed India-average line, over/under coloring |
+| **Global gauge** | Gradient track from net-zero to world average with animated pin |
+| **Smart recommendations** | Impact x feasibility ranked, category-specific, computed from YOUR breakdown |
+| **Social sharing** | Web Share API with clipboard fallback, pre-composed share text |
+| **Toast notifications** | Animated slide-up feedback on every action (add, scan, remove) |
+| **Dark mode** | Full `prefers-color-scheme: dark` with adjusted color palette |
+| **PWA installable** | Add to home screen on mobile, standalone display mode |
+| **Mobile-first** | 44px touch targets, 16px inputs (no iOS zoom), responsive 2/4-col grids |
+| **Accessible** | Skip-to-content link, semantic HTML, `prefers-reduced-motion` support |
+| **Demo mode** | One-click sample week loads realistic data to explore the full dashboard |
+
+---
+
 ## Run Locally
 
 ```bash
@@ -268,28 +367,6 @@ Zero config. No build settings needed. Vercel auto-deploys on every push.
 | **Testing** | Vitest 4.1 | Fast, ESM-native, 252 tests in 1.5s |
 | **Deployment** | Vercel | Zero-config, edge network, env var management |
 | **PWA** | Web manifest + SVG icons | Installable on mobile home screen |
-
----
-
-## Feature Highlights
-
-| Feature | Detail |
-|---|---|
-| **Gemini bill scanning** | Upload electricity bill or fuel receipt photo, AI extracts kWh/litres |
-| **State-specific grid** | 14 Indian states with CEA-sourced multipliers (Himachal 0.30x to Chhattisgarh 1.22x) |
-| **4-stat dashboard** | vs yesterday, 7-day average, streak days under India avg, yearly estimate |
-| **Annual projection** | Extrapolates daily footprint to tonnes/year with tree-offset equivalence |
-| **Streak gamification** | Tracks consecutive days under India's average carbon footprint |
-| **7-day trend chart** | CSS-only bar chart with dashed India-average line, over/under coloring |
-| **Global gauge** | Gradient track from net-zero to world average with animated pin |
-| **Smart recommendations** | Impact x feasibility ranked, category-specific, computed from YOUR breakdown |
-| **Social sharing** | Web Share API with clipboard fallback, pre-composed share text |
-| **Toast notifications** | Animated slide-up feedback on every action (add, scan, remove) |
-| **Dark mode** | Full `prefers-color-scheme: dark` with adjusted color palette |
-| **PWA installable** | Add to home screen on mobile, standalone display mode |
-| **Mobile-first** | 44px touch targets, 16px inputs (no iOS zoom), responsive 2/4-col grids |
-| **Accessible** | Skip-to-content link, semantic HTML, `prefers-reduced-motion` support |
-| **Demo mode** | One-click sample week loads realistic data to explore the full dashboard |
 
 ---
 
